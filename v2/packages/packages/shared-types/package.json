@@ -1,0 +1,7 @@
+{
+  "name": "@agentflow/shared-types",
+  "version": "1.0.0",
+  "description": "Shared TypeScript definitions and interfaces for DME AgentFlow",
+  "main": "index.ts",
+  "types": "index.ts"
+}

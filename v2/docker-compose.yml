@@ -1,0 +1,63 @@
+name: agentflow-v2
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: agentflow_v2_db
+      POSTGRES_USER: agentflow_v2
+      POSTGRES_PASSWORD: ${V2_DB_PASSWORD:?Set V2_DB_PASSWORD}
+    volumes:
+      - postgres_v2_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentflow_v2 -d agentflow_v2_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [database]
+  api:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://agentflow_v2:${V2_DB_PASSWORD:?Set V2_DB_PASSWORD}@postgres:5432/agentflow_v2_db
+      SECRET_KEY: ${V2_SECRET_KEY:?Set V2_SECRET_KEY}
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: "8080"
+      DATA_DIR: /data_v2
+      MODELS_DIR: /models_v2
+      UPLOADS_DIR: /data_v2/uploads
+      DOCUMENTS_DIR: /data_v2/documents
+    volumes:
+      - models_v2_data:/models_v2
+      - uploads_v2_data:/data_v2
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks: [database, app]
+  web:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile.web
+    restart: unless-stopped
+    ports:
+      - "${V2_BIND_ADDRESS:-127.0.0.1}:${V2_WEB_PORT:-3001}:3001"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [app]
+networks:
+  database:
+    internal: true
+  app:
+    driver: bridge
+volumes:
+  postgres_v2_data:
+  models_v2_data:
+  uploads_v2_data:

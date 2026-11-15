@@ -1,0 +1,38 @@
+version: "3.9"
+
+# ============================================================
+# GPU override — requires NVIDIA Container Toolkit
+# Usage: docker compose -f docker-compose.yml -f infrastructure/docker/docker-compose.gpu.yml up
+# ============================================================
+
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: ./infrastructure/docker/Dockerfile.gpu
+    environment:
+      AI_N_GPU_LAYERS: "-1"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    runtime: nvidia
+
+  inference:
+    build:
+      context: ../..
+      dockerfile: ./infrastructure/docker/Dockerfile.gpu
+    command: ["python3.12", "-m", "inference.worker"]
+    environment:
+      AI_N_GPU_LAYERS: "-1"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    runtime: nvidia

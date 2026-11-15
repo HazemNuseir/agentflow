@@ -1,0 +1,23 @@
+:root {
+  --background: #0f172a;
+  --foreground: #f8fafc;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.lan-page { max-width: 62rem; margin: auto; padding: 2rem; }
+.lan-page h1 { font-size: 2rem; }
+.lan-page section { margin: 1.25rem 0; padding: 1.25rem; border: 1px solid #334155; border-radius: .8rem; background: #172337; }
+.lan-page a { color: #5eead4; }
+.lan-page form { display: grid; gap: .75rem; max-width: 34rem; }
+.lan-page label { display: grid; gap: .35rem; }
+.lan-page button, .lan-page input, .lan-page select, .lan-page textarea { background: #0f172a; color: #f8fafc; border: 1px solid #475569; border-radius: .4rem; padding: .5rem .75rem; }
+.lan-page button:disabled { opacity: .5; }
+.lan-page [role=alert] { color: #fca5a5; }
+.lan-page pre { overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }

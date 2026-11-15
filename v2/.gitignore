@@ -1,0 +1,10 @@
+.env
+.venv/
+.verification/
+**/node_modules/
+**/.next/
+**/__pycache__/
+*.db
+*.gguf
+data_v2/
+models_v2/

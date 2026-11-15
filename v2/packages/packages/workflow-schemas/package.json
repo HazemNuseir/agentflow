@@ -1,0 +1,7 @@
+{
+  "name": "@agentflow/workflow-schemas",
+  "version": "1.0.0",
+  "description": "Validation schemas and node specs for DME AgentFlow workflows",
+  "main": "index.ts",
+  "types": "index.ts"
+}

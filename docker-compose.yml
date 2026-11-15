@@ -1,0 +1,158 @@
+version: "3.9"
+
+networks:
+  agentflow-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  models_data:
+  uploads_data:
+
+services:
+  # ============================================================
+  # PostgreSQL with pgvector extension
+  # ============================================================
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: agentflow
+      POSTGRES_USER: agentflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - agentflow-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agentflow -d agentflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    ports:
+      - "5432:5432"
+
+  # ============================================================
+  # Redis for task queuing and caching
+  # ============================================================
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - agentflow-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    ports:
+      - "6379:6379"
+
+  # ============================================================
+  # FastAPI Backend (api)
+  # ============================================================
+  api:
+    build:
+      context: .
+      dockerfile: ./infrastructure/docker/Dockerfile.api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://agentflow:${POSTGRES_PASSWORD:-changeme}@postgres:5432/agentflow
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - models_data:/models
+      - uploads_data:/data/uploads
+    ports:
+      - "8000:8000"
+    networks:
+      - agentflow-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ============================================================
+  # Celery Worker
+  # ============================================================
+  worker:
+    build:
+      context: .
+      dockerfile: ./infrastructure/docker/Dockerfile.api
+    restart: unless-stopped
+    command: ["celery", "-A", "tasks.worker", "worker", "--loglevel=info", "--concurrency=4"]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://agentflow:${POSTGRES_PASSWORD:-changeme}@postgres:5432/agentflow
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - models_data:/models
+      - uploads_data:/data/uploads
+    networks:
+      - agentflow-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ============================================================
+  # AI Inference Worker (CPU; GPU override in docker-compose.gpu.yml)
+  # ============================================================
+  inference:
+    build:
+      context: .
+      dockerfile: ./infrastructure/docker/Dockerfile.api
+    restart: unless-stopped
+    command: ["python", "-m", "inference.worker"]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://agentflow:${POSTGRES_PASSWORD:-changeme}@postgres:5432/agentflow
+      REDIS_URL: redis://redis:6379/0
+      AI_N_GPU_LAYERS: "0"
+    volumes:
+      - models_data:/models
+      - uploads_data:/data/uploads
+    networks:
+      - agentflow-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ============================================================
+  # Next.js Frontend
+  # ============================================================
+  web:
+    build:
+      context: .
+      dockerfile: ./infrastructure/docker/Dockerfile.web
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NEXT_PUBLIC_API_URL: http://api:8000
+    ports:
+      - "3000:3000"
+    networks:
+      - agentflow-network
+    depends_on:
+      api:
+        condition: service_healthy
